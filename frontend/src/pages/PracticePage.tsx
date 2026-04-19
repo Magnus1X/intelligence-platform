@@ -122,7 +122,6 @@ export default function PracticePage() {
   const [running, setRunning]           = useState(false);
   const [submitting, setSubmitting]     = useState(false);
   const [sidebarOpen, setSidebarOpen]   = useState(false);
-  const [editorReady, setEditorReady]   = useState(false);
 
   // Imperative refs — never cause re-renders
   const editorRef  = useRef<MEditor.IStandaloneCodeEditor | null>(null);
@@ -153,7 +152,6 @@ export default function PracticePage() {
     editorRef.current  = editor;
     monacoRef.current  = monaco;
     codeRef.current    = editor.getValue();
-    setEditorReady(true);
   }, []);
 
   const handleCodeChange = useCallback((code: string) => {
