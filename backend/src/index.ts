@@ -9,7 +9,7 @@ const app = express();
 
 // ── CORS — fully open, reflect any origin ──────────────────────────────────
 app.use(cors({ origin: true, credentials: true, methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"] }));
-app.options("*", cors({ origin: true, credentials: true }));
+app.options("/{*path}", cors({ origin: true, credentials: true }));
 app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
 app.use(morgan("combined"));
 app.use(express.json({ limit: "2mb" }));
