@@ -13,43 +13,24 @@ import {
 } from "../interfaces";
 
 class AIService {
-  private codeAnalysisKeys: string[];
-  private questionGenKeys: string[];
-  private questionKeyIndex = 0;
+  private codeAnalysisKey: string;
+  private practiceKey: string;
+  private interviewKey: string;
+  private roadmapKey: string;
 
   constructor() {
-    this.codeAnalysisKeys = [process.env.GEMINI_API_KEY_1!].filter(Boolean);
-    this.questionGenKeys = [
-      process.env.GEMINI_API_KEY_2!,
-      process.env.GEMINI_API_KEY_3!,
-      process.env.GEMINI_API_KEY_4!,
-      process.env.GEMINI_API_KEY_5!,
-      process.env.GEMINI_API_KEY_6!,
-    ].filter(Boolean);
-  }
-
-  private getNextQuestionKey(): string {
-    const key = this.questionGenKeys[this.questionKeyIndex % this.questionGenKeys.length];
-    this.questionKeyIndex++;
-    return key;
+    this.codeAnalysisKey = process.env.GEMINI_API_KEY_1 || "";
+    this.practiceKey = process.env.GEMINI_API_KEY_2 || "";
+    this.interviewKey = process.env.GEMINI_API_KEY_3 || "";
+    this.roadmapKey = process.env.GEMINI_API_KEY_4 || "";
   }
 
   private async callGemini(apiKey: string, prompt: string): Promise<string> {
+    if (!apiKey) throw new Error("API Key for this feature is missing. Please add it to your .env file.");
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     return result.response.text();
-  }
-
-  private async callWithFallback(keys: string[], prompt: string): Promise<string> {
-    for (const key of keys) {
-      try {
-        return await this.callGemini(key, prompt);
-      } catch {
-        continue;
-      }
-    }
-    throw new Error("All AI API keys exhausted or failed.");
   }
 
   async analyzeCode(code: string, language: string): Promise<ICodeAnalysisResult> {
@@ -67,7 +48,7 @@ Code:
 ${code}
 \`\`\``;
 
-    const raw = await this.callWithFallback(this.codeAnalysisKeys, prompt);
+    const raw = await this.callGemini(this.codeAnalysisKey, prompt);
     const cleaned = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(cleaned);
   }
@@ -78,7 +59,6 @@ ${code}
     difficulty: InterviewDifficulty,
     count = 5
   ): Promise<IQuestionGenerationResult[]> {
-    const key = this.getNextQuestionKey();
     const categoryInfo = INTERVIEW_CATEGORY_DETAILS[category];
     const prompt = `Generate ${count} interview questions for a ${role} role.
 Track: ${categoryInfo.label}
@@ -102,13 +82,12 @@ Rules:
 - For "written" questions, use an empty array for "options".
 - "responseType" must be either "choice" or "written".`;
 
-    const raw = await this.callGemini(key, prompt);
+    const raw = await this.callGemini(this.interviewKey, prompt);
     const cleaned = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(cleaned);
   }
 
   async evaluateAnswer(question: string, answer: string, responseType: InterviewResponseType): Promise<IEvaluationResult> {
-    const key = this.getNextQuestionKey();
     const prompt = `Evaluate this interview answer. Respond ONLY with valid JSON (no markdown):
 {
   "aiScore": <0-100>,
@@ -121,22 +100,18 @@ Question type: ${responseType}
 Question: ${question}
 Answer: ${answer}`;
 
-    const raw = await this.callGemini(key, prompt);
+    const raw = await this.callGemini(this.interviewKey, prompt);
     const cleaned = raw.replace(/```json|```/g, "").trim();
     return JSON.parse(cleaned);
   }
 
   async explainCode(code: string, language: string): Promise<string> {
-    const key = this.getNextQuestionKey();
     const prompt = `Explain this ${language} code in simple terms for a beginner. Be concise.\n\n${code}`;
-    return this.callGemini(key, prompt);
+    return this.callGemini(this.practiceKey, prompt);
   }
 
   async generateText(prompt: string): Promise<string> {
-    return this.callWithFallback(
-      [...this.questionGenKeys, ...this.codeAnalysisKeys],
-      prompt
-    );
+    return this.callGemini(this.roadmapKey, prompt);
   }
 }
 

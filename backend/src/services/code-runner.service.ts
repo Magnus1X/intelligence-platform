@@ -75,7 +75,7 @@ ${code}
         results.push({ input: tc.input, expected: tc.expectedOutput, actual: "", passed: false, error: actual.slice(6) });
       } else {
         const passed = actual?.trim() === tc.expectedOutput.trim() ||
-                       actual?.replace(/\s/g, "") === tc.expectedOutput.replace(/\s/g, "");
+          actual?.replace(/\s/g, "") === tc.expectedOutput.replace(/\s/g, "");
         results.push({ input: tc.input, expected: tc.expectedOutput, actual: actual ?? "", passed });
       }
     } catch (e: any) {
