@@ -71,7 +71,10 @@ const practiceQuestion = ({
   category,
   tags,
   constraints,
-  examples: [],
+  examples: testCases.slice(0, 2).map((tc) => ({
+    input: tc.input,
+    output: tc.expectedOutput,
+  })),
   hints,
   testCases,
   starterCode,
