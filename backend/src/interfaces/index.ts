@@ -5,11 +5,17 @@ import type { InterviewCategory, InterviewDifficulty, InterviewResponseType } fr
 export interface IUser extends Document {
   name: string;
   email: string;
-  password: string;
+  password?: string;
+  authProvider: "local" | "google";
+  googleId?: string;
   role: "user" | "admin";
   college?: string;
   yearOfStudy?: string;
   address?: string;
+  bio?: string;
+  github?: string;
+  linkedin?: string;
+  website?: string;
   createdAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
 }
@@ -22,6 +28,10 @@ export interface IUserPayload {
   college?: string;
   yearOfStudy?: string;
   address?: string;
+  bio?: string;
+  github?: string;
+  linkedin?: string;
+  website?: string;
 }
 
 // ─── Interview Session ────────────────────────────────────────────────────────
