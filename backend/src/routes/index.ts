@@ -15,13 +15,26 @@ const practice = new PracticeController();
 const roadmap = new RoadmapController();
 const dashboard = new DashboardController();
 
+import passport from "../config/passport";
+
+router.use(passport.initialize());
+
 // Dashboard
 router.get("/dashboard/stats", authenticate, dashboard.getStats);
 
 // Auth
 router.post("/auth/register", auth.register);
 router.post("/auth/login", auth.login);
+
+router.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+router.get(
+  "/auth/google/callback",
+  passport.authenticate("google", { session: false, failureRedirect: "http://localhost:5173/auth?error=true" }),
+  auth.googleCallback
+);
+
 router.get("/auth/me", authenticate, auth.me);
+router.put("/auth/profile", authenticate, auth.updateProfile);
 
 // Code Intelligence
 router.post("/code/analyze", authenticate, code.analyze);
