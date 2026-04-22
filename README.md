@@ -1,135 +1,84 @@
 # Intelligence Platform
 
-A full-stack AI-powered developer platform for code analysis, interview preparation, coding practice, and structured learning roadmaps.
+An advanced, AI-powered coding and interview preparation suite designed to help developers master algorithms, ace technical interviews, and understand complex code using the power of Google Gemini AI.
 
----
+## 🚀 Features
 
-## Tech Stack
+- **Practice Arena:** A high-fidelity, LeetCode-style code editor powered by Monaco Editor. Features multi-language support (JS, TS, Python, Java, C++), instant remote code execution, and comprehensive test case validation.
+- **AI Interview Prep:** Dynamic, AI-generated mock interview sessions tailored to specific roles, difficulties, and topics. Receive real-time evaluations and constructive feedback.
+- **Code Intelligence:** Instantly analyze time/space complexity, detect anti-patterns, and generate beginner-friendly explanations for any block of code using Gemini 2.5 Flash.
+- **Career Roadmaps:** Structured, progress-tracked learning paths for Placements and Internships.
+- **Secure Authentication:** Seamless Google OAuth 2.0 integration via Passport.js and secure JWT session management.
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 19, TypeScript, Tailwind CSS, Monaco Editor |
-| Backend | Node.js, Express 5, TypeScript (OOP) |
-| Database | MongoDB + Mongoose ODM |
-| Auth | JWT (jsonwebtoken + bcryptjs) |
-| AI | Google Gemini (multi-key, load-balanced) |
+## 💻 Tech Stack
 
----
+**Frontend:**
+- React 18 & Vite
+- TypeScript
+- Tailwind CSS
+- Monaco Editor (vs-code engine)
+- React Router DOM
 
-## Architecture
+**Backend:**
+- Node.js & Express
+- MongoDB & Mongoose
+- Google Generative AI SDK (Gemini)
+- Passport.js (Google OAuth20)
+- JSON Web Tokens (JWT) & Bcrypt
 
-```
-backend/src/
-├── interfaces/       # TypeScript interfaces (SOLID: ISP)
-├── models/           # Mongoose schemas
-├── repositories/     # Data access layer (SRP)
-├── services/         # Business logic (OCP, DIP)
-├── controllers/      # HTTP handlers (SRP)
-├── middleware/       # JWT auth, role guard
-├── routes/           # Express router
-├── config/           # DB connection
-└── utils/            # Seed script
-
-frontend/src/
-├── context/          # AuthContext (React Context API)
-├── services/         # Axios API client
-├── components/layout # Sidebar layout
-└── pages/            # Dashboard, Code, Interview, Practice, Roadmap
-```
-
----
-
-## Features
-
-- **Auth** — JWT signup/login, role-based (user/admin), bcrypt hashed passwords
-- **Code Intelligence** — Monaco Editor, AI complexity analysis, anti-pattern detection, code explanation
-- **Interview Prep** — AI-generated questions by role/category/difficulty, timer-based mock sessions, AI evaluation with score + feedback
-- **Practice Platform** — Coding problems with test cases, submission tracking, leaderboard
-- **Roadmap** — Internship & placement paths, topic progress tracking, AI recommendations
-- **Multi-key AI** — Load-balanced Gemini keys with automatic fallback
-
----
-
-## Setup
+## ⚙️ Local Development
 
 ### Prerequisites
-- Node.js 18+
-- MongoDB (local or Atlas)
-- Google Gemini API key(s) — [Get one free](https://aistudio.google.com/app/apikey)
+- Node.js (v18+)
+- MongoDB Atlas URI
+- Google Gemini API Keys
+- Google OAuth Client ID & Secret
 
-### 1. Backend
-
+### 1. Clone & Install
 ```bash
+git clone https://github.com/Magnus1X/intelligence-platform.git
+cd intelligence-platform
+
+# Install Backend Dependencies
 cd backend
 npm install
-cp .env .env.local   # edit with your values
-```
 
-Edit `.env`:
-```
-MONGO_URI=mongodb://localhost:27017/intelligence_platform
-JWT_SECRET=your_secret_here
-GEMINI_API_KEY_1=your_key_for_code_analysis
-GEMINI_API_KEY_2=your_key_for_questions
-# Add up to GEMINI_API_KEY_6 for load balancing
-```
-
-```bash
-npm run seed    # populate DB with roadmaps + practice questions
-npm run dev     # starts on http://localhost:5000
-```
-
-### 2. Frontend
-
-```bash
-cd frontend
+# Install Frontend Dependencies
+cd ../frontend
 npm install
-npm run dev     # starts on http://localhost:5173
 ```
 
-The Vite dev server proxies `/api` → `http://localhost:5000`.
-
----
-
-## API Reference
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/api/auth/register` | — | Register user |
-| POST | `/api/auth/login` | — | Login |
-| GET | `/api/auth/me` | ✓ | Current user |
-| POST | `/api/code/analyze` | ✓ | AI code analysis |
-| POST | `/api/code/explain` | ✓ | AI code explanation |
-| POST | `/api/interview/sessions` | ✓ | Start interview session |
-| POST | `/api/interview/answers` | ✓ | Submit + evaluate answer |
-| PATCH | `/api/interview/sessions/:id/complete` | ✓ | Complete session |
-| GET | `/api/interview/sessions` | ✓ | User's session history |
-| GET | `/api/practice/questions` | ✓ | List problems |
-| POST | `/api/practice/submit` | ✓ | Submit solution |
-| GET | `/api/practice/leaderboard` | — | Top scores |
-| GET | `/api/roadmaps` | ✓ | All roadmaps |
-| POST | `/api/roadmaps/progress` | ✓ | Update progress |
-| GET | `/api/roadmaps/:id/recommend` | ✓ | AI recommendation |
-
----
-
-## Data Models
-
-```
-User ──< InterviewSession ──< Question
-                          └──< Answer ──(embedded) Evaluation
-
-User ──< Submission >── PracticeQuestion (embedded TestCases)
-User ──< Progress >── Roadmap (embedded Topics)
+### 2. Environment Variables
+Create a `.env` file in the `backend` directory:
+```env
+PORT=5001
+MONGO_URI=your_mongodb_uri
+JWT_SECRET=your_jwt_secret
+GEMINI_API_KEY_1=your_gemini_key_here
+GEMINI_API_KEY_2=your_gemini_key_here
+GEMINI_API_KEY_3=your_gemini_key_here
+GEMINI_API_KEY_4=your_gemini_key_here
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+FRONTEND_URL=http://localhost:5173
 ```
 
----
-
-## AI Key Strategy
-
-```
-GEMINI_API_KEY_1          → Code analysis (dedicated)
-GEMINI_API_KEY_2..6       → Question generation + evaluation (round-robin)
+Create a `.env.local` file in the `frontend` directory:
+```env
+VITE_API_URL=http://localhost:5001
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
-All calls use automatic fallback: if one key fails, the next is tried.
+### 3. Start Development Servers
+```bash
+# Terminal 1: Start Backend (Port 5001)
+cd backend
+npm run dev
+
+# Terminal 2: Start Frontend (Port 5173)
+cd frontend
+npm run dev
+```
+
+## 📄 License
+This project is proprietary and confidential. Unauthorized copying of this file, via any medium, is strictly prohibited.
