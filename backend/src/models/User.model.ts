@@ -6,7 +6,7 @@ const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true },
-    password: { type: String, minlength: 6 },
+    password: { type: String },
     authProvider: { type: String, enum: ["local", "google"], default: "local" },
     googleId: { type: String },
     role: { type: String, enum: ["user", "admin"], default: "user" },

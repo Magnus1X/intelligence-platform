@@ -29,7 +29,7 @@ router.post("/auth/login", auth.login);
 router.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 router.get(
   "/auth/google/callback",
-  passport.authenticate("google", { session: false, failureRedirect: "http://localhost:5173/auth?error=true" }),
+  passport.authenticate("google", { session: false, failureRedirect: `${(process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "")}/auth?error=true` }),
   auth.googleCallback
 );
 

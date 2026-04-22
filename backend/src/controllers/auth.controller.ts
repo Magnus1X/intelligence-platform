@@ -30,12 +30,12 @@ export class AuthController {
       if (!user) throw new Error("Authentication failed");
       
       const token = this.service.generateToken(user);
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      const frontendUrl = (process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
       
       // Redirect back to frontend with the token
       res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
     } catch (err: any) {
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      const frontendUrl = (process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
       res.redirect(`${frontendUrl}/auth?error=${encodeURIComponent(err.message)}`);
     }
   };
