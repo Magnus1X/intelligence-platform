@@ -161,7 +161,7 @@ export default function Dashboard() {
           {(p?.solvedQuestions ?? []).length === 0
             ? <p className="text-sm text-gray-400">No solved problems yet.</p>
             : (p?.solvedQuestions ?? []).map((q) => (
-              <Link key={q._id} to="/practice"
+              <Link key={q._id} to={`/practice?id=${q._id}`}
                 className="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3 hover:border-black transition group">
                 <div>
                   <p className="text-sm font-medium group-hover:underline">{q.title}</p>
@@ -184,7 +184,7 @@ export default function Dashboard() {
           {(p?.attemptedQuestions ?? []).length === 0
             ? <p className="text-sm text-gray-400">All attempted problems are solved!</p>
             : (p?.attemptedQuestions ?? []).map((q) => (
-              <Link key={q._id} to="/practice"
+              <Link key={q._id} to={`/practice?id=${q._id}`}
                 className="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3 hover:border-black transition group">
                 <div>
                   <p className="text-sm font-medium group-hover:underline">{q.title}</p>
@@ -283,7 +283,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Stat cards — clickable ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
           { key: "solved",      label: "Problems Solved",     value: p?.solved ?? 0,             sub: `of ${p?.total ?? 0} total`,          icon: CheckCircle2, color: "text-green-600",  bg: "bg-green-50",  drawer: "solved"      as DrawerType },
           { key: "attempted",   label: "Attempted",           value: p?.attempted ?? 0,          sub: "unique problems",                    icon: Target,       color: "text-blue-600",   bg: "bg-blue-50",   drawer: "attempted"   as DrawerType },
@@ -291,14 +291,13 @@ export default function Dashboard() {
           { key: "score",       label: "Avg Interview Score", value: `${iv?.avgScore ?? 0}`,     sub: "out of 100",                         icon: TrendingUp,   color: "text-orange-600", bg: "bg-orange-50", drawer: "submissions" as DrawerType },
         ].map(({ key, label, value, sub, icon: Icon, color, bg, drawer: d }) => (
           <button key={key} onClick={() => setDrawer(d)}
-            className="border border-gray-200 rounded-2xl p-5 text-left hover:border-black hover:shadow-sm transition group cursor-pointer">
-            <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center mb-3`}>
-              <Icon size={18} className={color} />
+            className="border border-gray-200 rounded-2xl p-4 sm:p-5 text-left hover:border-black hover:shadow-sm transition group cursor-pointer flex flex-col justify-between">
+            <div className={`w-8 h-8 sm:w-9 sm:h-9 ${bg} rounded-xl flex items-center justify-center mb-2 sm:mb-3`}>
+              <Icon size={16} className={`${color} w-4 h-4 sm:w-[18px] sm:h-[18px]`} />
             </div>
-            <p className="text-2xl font-extrabold">{value}</p>
-            <p className="text-xs font-medium text-gray-700 mt-0.5">{label}</p>
-            <p className="text-xs text-gray-400">{sub}</p>
-            <p className="text-xs text-gray-300 mt-2 group-hover:text-gray-500 transition">Click to view →</p>
+            <p className="text-xl sm:text-2xl font-extrabold">{value}</p>
+            <p className="text-[11px] sm:text-xs font-medium text-gray-700 mt-0.5 leading-tight">{label}</p>
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-1 hidden sm:block">{sub}</p>
           </button>
         ))}
       </div>
@@ -384,12 +383,12 @@ export default function Dashboard() {
             ? <p className="text-xs text-gray-400">No submissions yet. <Link to="/practice" className="underline">Start →</Link></p>
             : <div className="space-y-2">
                 {(p?.allSubmissions ?? []).slice(0,6).map((s,i) => (
-                  <div key={i} className="flex items-center justify-between">
+                  <Link key={i} to={`/practice?id=${s.questionId?._id}`} className="flex items-center justify-between group hover:bg-gray-50 p-1 -mx-1 rounded-md transition">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`text-xs font-bold shrink-0 ${STATUS_COLOR[s.status]}`}>
                         {s.status === "accepted" ? "✓" : "✗"}
                       </span>
-                      <span className="text-xs text-gray-700 truncate">{s.questionId?.title ?? "—"}</span>
+                      <span className="text-xs text-gray-700 truncate group-hover:underline">{s.questionId?.title ?? "—"}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       {s.questionId?.difficulty && (
@@ -399,32 +398,32 @@ export default function Dashboard() {
                       )}
                       <span className="text-xs text-gray-300">{s.language}</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
           }
         </div>
 
-        {/* Recent interviews */}
+        {/* Pending interviews */}
         <div className="border border-gray-200 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-semibold">Recent Interviews</p>
+            <p className="text-sm font-semibold">Pending Interviews</p>
             <button onClick={() => setDrawer("interviews")}
               className="text-xs text-gray-400 hover:text-black flex items-center gap-1 transition">
               View all <ArrowRight size={11} />
             </button>
           </div>
-          {(iv?.allSessions ?? []).length === 0
-            ? <p className="text-xs text-gray-400">No sessions yet. <Link to="/interview" className="underline">Start one →</Link></p>
+          {(iv?.allSessions ?? []).filter(s => s.status === 'active').length === 0
+            ? <p className="text-xs text-gray-400">No pending interviews. <Link to="/interview" className="underline">Start new →</Link></p>
             : <div className="space-y-2">
-                {(iv?.allSessions ?? []).slice(0,5).map((s,i) => (
+                {(iv?.allSessions ?? []).filter(s => s.status === 'active').slice(0,5).map((s,i) => (
                   <div key={i} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Brain size={13} className="text-gray-400 shrink-0"/>
                       <span className="text-xs text-gray-700">{s.role}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-medium ${s.status==="completed"?"text-green-600":"text-gray-400"}`}>{s.status}</span>
+                      <span className={`text-xs font-medium text-blue-600`}>{s.status}</span>
                       <span className="text-xs text-gray-300">{new Date(s.createdAt).toLocaleDateString("en",{month:"short",day:"numeric"})}</span>
                     </div>
                   </div>
@@ -490,15 +489,15 @@ export default function Dashboard() {
           { to:"/roadmap",   icon:Map,      label:"Roadmap",           sub:"Track progress"                 },
         ].map(({ to, icon:Icon, label, sub }) => (
           <Link key={to} to={to}
-            className="border border-gray-200 rounded-2xl p-4 hover:border-black transition group flex items-center gap-3">
+            className="border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-black transition group flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
             <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-black group-hover:text-white transition">
-              <Icon size={16}/>
+              <Icon size={16} className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-sm font-semibold">{label}</p>
-              <p className="text-xs text-gray-400">{sub}</p>
+              <p className="text-[11px] sm:text-sm font-semibold leading-tight">{label}</p>
+              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 hidden sm:block">{sub}</p>
             </div>
-            <Clock size={13} className="ml-auto text-gray-200 group-hover:text-gray-400 transition"/>
+            <Clock size={13} className="ml-auto text-gray-200 group-hover:text-gray-400 transition hidden sm:block" />
           </Link>
         ))}
       </div>
