@@ -7,7 +7,6 @@ import toast from "react-hot-toast";
 export default function AuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { setToken } = useAuth(); // We need to make sure setToken is available in useAuth
 
   useEffect(() => {
     const token = searchParams.get("token");

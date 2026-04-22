@@ -205,7 +205,8 @@ export default function AuthPage() {
           <div className="flex justify-center mb-6">
             <button
               onClick={() => {
-                const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5001";
+                const rawUrl = import.meta.env.VITE_API_URL || "http://localhost:5001";
+                const baseUrl = rawUrl.replace(/\/+$/, "").replace(/\/api$/, "");
                 window.location.href = `${baseUrl}/api/auth/google`;
               }}
               type="button"

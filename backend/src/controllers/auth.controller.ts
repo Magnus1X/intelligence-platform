@@ -26,7 +26,7 @@ export class AuthController {
 
   googleCallback = async (req: Request, res: Response) => {
     try {
-      const user = req.user as any;
+      const user = (req as any).user;
       if (!user) throw new Error("Authentication failed");
       
       const token = this.service.generateToken(user);
