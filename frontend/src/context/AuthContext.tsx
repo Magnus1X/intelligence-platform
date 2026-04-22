@@ -1,13 +1,28 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import api from "../services/api";
 
-interface User { id: string; name: string; email: string; role: string; college?: string; yearOfStudy?: string; address?: string; }
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  college?: string;
+  yearOfStudy?: string;
+  address?: string;
+  bio?: string;
+  github?: string;
+  linkedin?: string;
+  website?: string;
+}
+
 interface AuthCtx {
   user: User | null;
   token: string | null;
   isNewUser: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, college?: string, yearOfStudy?: string, address?: string) => Promise<void>;
+  googleLogin: (token: string) => Promise<void>;
+  updateProfile: (data: Partial<User>) => Promise<void>;
   logout: () => void;
 }
 
@@ -40,6 +55,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsNewUser(true);
   };
 
+  const googleLogin = async (googleToken: string) => {
+    const { data } = await api.post("/auth/google", { token: googleToken });
+    localStorage.setItem("token", data.data.token);
+    setToken(data.data.token);
+    setUser(data.data.user);
+    setIsNewUser(data.data.isNewUser || false);
+  };
+
+  const updateProfile = async (data: Partial<User>) => {
+    const res = await api.put("/auth/profile", data);
+    setUser(res.data.data);
+  };
+
   const logout = () => {
     localStorage.removeItem("token");
     setToken(null);
@@ -48,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isNewUser, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, isNewUser, login, register, googleLogin, updateProfile, logout }}>
       {children}
     </AuthContext.Provider>
   );

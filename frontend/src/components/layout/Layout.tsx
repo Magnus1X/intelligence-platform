@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { Code2, Brain, BookOpen, Map, LayoutDashboard, LogOut } from "lucide-react";
+import { Code2, Brain, BookOpen, Map, LayoutDashboard, LogOut, User as UserIcon } from "lucide-react";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard"        },
@@ -33,7 +33,7 @@ export default function Layout() {
         </div>
 
         {/* Nav */}
-        <div className="overflow-x-auto md:flex-1 md:overflow-visible">
+        <div className="overflow-x-auto scrollbar-hide border-b border-gray-100 md:flex-1 md:overflow-visible md:border-b-0">
           <nav className="flex min-w-max gap-1 px-3 py-2 md:min-w-0 md:flex-col md:p-3">
             {navItems.map(({ to, icon: Icon, label }) => (
               <NavLink key={to} to={to}
@@ -46,24 +46,30 @@ export default function Layout() {
                 {label}
               </NavLink>
             ))}
+            
+            {/* Mobile-only Profile Link */}
+            <NavLink to="/profile"
+              className={({ isActive }) =>
+                `md:hidden flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
+                  isActive ? "bg-black text-white" : "text-gray-600 hover:bg-gray-100"
+                }`
+              }>
+              <UserIcon size={15} />
+              Profile
+            </NavLink>
           </nav>
         </div>
 
         {/* Desktop user + logout */}
-        <div className="mt-auto hidden border-t border-gray-200 p-4 md:block">
-          <div className="mb-4 space-y-1">
-            <p className="text-sm font-semibold text-gray-900 truncate">{user?.name}</p>
-            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-            {user?.college && (
-              <p className="text-xs text-gray-400 truncate mt-1">🎓 {user.college}</p>
-            )}
-            {user?.yearOfStudy && (
-              <p className="text-xs text-gray-400 truncate">📅 {user.yearOfStudy}</p>
-            )}
-            {user?.address && (
-              <p className="text-xs text-gray-400 truncate">📍 {user.address}</p>
-            )}
-          </div>
+        <div className="mt-auto hidden border-t border-gray-200 p-4 md:block space-y-2">
+          <NavLink to="/profile"
+            className={({ isActive }) => 
+              `flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                isActive ? "border-black bg-black text-white" : "border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-black"
+              }`
+            }>
+            <UserIcon size={14} /> Profile
+          </NavLink>
           <button onClick={logout}
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-black transition">
             <LogOut size={14} /> Sign out
