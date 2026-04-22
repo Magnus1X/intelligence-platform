@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import Editor, { OnMount } from "@monaco-editor/react";
 import type { editor as MEditor } from "monaco-editor";
 import api from "../services/api";
@@ -110,6 +111,9 @@ function ProblemItem({ q, active, solved, onClick }: {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function PracticePage() {
+  const [searchParams] = useSearchParams();
+  const initialCategory = searchParams.get("category") || "all";
+
   const [questions, setQuestions]       = useState<PracticeQ[]>([]);
   const [solvedIds, setSolvedIds]       = useState<Set<string>>(new Set());
   const [selected, setSelected]         = useState<PracticeQ | null>(null);
@@ -118,15 +122,68 @@ export default function PracticePage() {
   const [submitStatus, setSubmitStatus] = useState<"accepted" | "wrong_answer" | "error" | null>(null);
   const [leaderboard, setLeaderboard]   = useState<LeaderEntry[]>([]);
   const [listTab, setListTab]           = useState<"all" | "solved" | "unsolved" | "leaderboard">("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [mobilePanel, setMobilePanel]   = useState<"problem" | "editor">("problem");
   const [running, setRunning]           = useState(false);
   const [submitting, setSubmitting]     = useState(false);
   const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [isSubmitMode, setIsSubmitMode] = useState(false);
+  const [topHeight, setTopHeight]       = useState(40);
 
   // Imperative refs — never cause re-renders
   const editorRef  = useRef<MEditor.IStandaloneCodeEditor | null>(null);
   const monacoRef  = useRef<typeof import("monaco-editor") | null>(null);
   const codeRef    = useRef("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const startDrag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!containerRef.current) return;
+      const { top, height } = containerRef.current.getBoundingClientRect();
+      let newHeight = ((moveEvent.clientY - top) / height) * 100;
+      if (newHeight < 15) newHeight = 15;
+      if (newHeight > 85) newHeight = 85;
+      setTopHeight(newHeight);
+    };
+    const onMouseUp = () => {
+      document.body.style.cursor = '';
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.body.style.cursor = 'row-resize';
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
+  useEffect(() => {
+    const c = searchParams.get("category");
+    if (c) setSelectedCategory(c);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const qid = searchParams.get("id");
+    if (qid && questions.length > 0 && selected?._id !== qid) {
+      const q = questions.find((q) => q._id.toString() === qid);
+      if (q) {
+        const bp = boilerplate(language, q);
+        setSelected(q);
+        codeRef.current = bp;
+        if (editorRef.current && monacoRef.current) {
+          const model = editorRef.current.getModel();
+          if (model) {
+            monacoRef.current.editor.setModelLanguage(model, language);
+            editorRef.current.setValue(bp);
+          }
+        }
+        setRunResult(null);
+        setSubmitStatus(null);
+        setSidebarOpen(false);
+        setMobilePanel("editor");
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, questions]);
 
   useEffect(() => {
     api.get("/practice/questions").then((r) => setQuestions(r.data.data));
@@ -203,7 +260,7 @@ export default function PracticePage() {
 
   const run = async () => {
     if (!selected) return;
-    setRunning(true); setRunResult(null); setSubmitStatus(null);
+    setRunning(true); setRunResult(null); setSubmitStatus(null); setIsSubmitMode(false);
     try {
       const { data } = await api.post("/practice/run", {
         questionId: selected._id, code: codeRef.current, language,
@@ -215,23 +272,27 @@ export default function PracticePage() {
   };
 
   const submit = async () => {
-    if (!selected || !runResult?.passed) return;
-    setSubmitting(true);
+    if (!selected) return;
+    setSubmitting(true); setRunResult(null); setSubmitStatus(null); setIsSubmitMode(true);
     try {
       const { data } = await api.post("/practice/submit", {
         questionId: selected._id, code: codeRef.current, language,
       });
       const status = data.data.submission.status;
+      setRunResult(data.data.runResult);
       setSubmitStatus(status);
       if (status === "accepted") setSolvedIds((p) => new Set([...p, selected._id.toString()]));
     } catch { setSubmitStatus("error"); }
     finally { setSubmitting(false); }
   };
 
+  const categories = ["all", ...Array.from(new Set(questions.map(q => q.category.toLowerCase())))].sort();
+
   const filtered = questions.filter((q) => {
     const id = q._id.toString();
-    if (listTab === "solved")   return solvedIds.has(id);
-    if (listTab === "unsolved") return !solvedIds.has(id);
+    if (listTab === "solved" && !solvedIds.has(id)) return false;
+    if (listTab === "unsolved" && solvedIds.has(id)) return false;
+    if (selectedCategory !== "all" && q.category.toLowerCase() !== selectedCategory) return false;
     return true;
   });
 
@@ -255,15 +316,33 @@ export default function PracticePage() {
         </button>
       </div>
 
-      <div className="px-3 py-2 border-b border-gray-100 shrink-0">
-        <div className="flex justify-between text-xs text-gray-400 mb-1">
-          <span><span className="font-semibold text-green-600">{solvedIds.size}</span>/{questions.length} solved</span>
-          <span>{solvedPct}%</span>
-        </div>
-        <div className="w-full bg-gray-100 rounded-full h-1.5">
-          <div className="h-1.5 rounded-full bg-green-500 transition-all" style={{ width: `${solvedPct}%` }} />
-        </div>
-      </div>
+      {listTab !== "leaderboard" && (
+        <>
+          <div className="px-3 pt-2 pb-1 border-b border-gray-100 shrink-0">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full text-xs bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-gray-400 capitalize cursor-pointer"
+            >
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c === "all" ? "All Categories" : c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="px-3 py-2 border-b border-gray-100 shrink-0">
+            <div className="flex justify-between text-xs text-gray-400 mb-1">
+              <span><span className="font-semibold text-green-600">{solvedIds.size}</span>/{questions.length} solved</span>
+              <span>{solvedPct}%</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-1.5">
+              <div className="h-1.5 rounded-full bg-green-500 transition-all" style={{ width: `${solvedPct}%` }} />
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {listTab === "leaderboard" ? (
@@ -348,11 +427,15 @@ export default function PracticePage() {
         </div>
 
         {selected ? (
-          <div className="flex flex-1 min-h-0 overflow-hidden">
-
-            {/* Problem description */}
-            <div className={`lg:w-72 lg:shrink-0 lg:border-r lg:border-gray-100 overflow-y-auto p-4 space-y-4
-              ${mobilePanel === "problem" ? "flex flex-col flex-1 lg:block" : "hidden lg:block"}`}>
+          <div ref={containerRef} className="flex flex-col flex-1 min-h-0 overflow-hidden relative">
+            <style>{`
+              @media (min-width: 1024px) {
+                .dynamic-top-panel { height: ${topHeight}% !important; flex: none !important; }
+              }
+            `}</style>
+            {/* Problem description (TOP) */}
+            <div className={`dynamic-top-panel overflow-y-auto p-4 space-y-4
+              ${mobilePanel === "problem" ? "flex flex-col flex-1" : "hidden lg:block"}`}>
               <div>
                 <h3 className="font-bold text-base mb-1">{selected.title}</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">{selected.description}</p>
@@ -393,25 +476,17 @@ export default function PracticePage() {
                   </ul>
                 </details>
               )}
-              <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                  Test Cases ({selected.testCases.length})
-                </p>
-                <div className="space-y-1.5">
-                  {selected.testCases.slice(0, 3).map((tc, i) => (
-                    <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 text-xs font-mono border border-gray-100">
-                      <span className="text-gray-400">In: </span>{tc.input}
-                      <span className="text-gray-400 mx-1">→</span>{tc.expectedOutput}
-                    </div>
-                  ))}
-                  {selected.testCases.length > 3 && (
-                    <p className="text-xs text-gray-400">+{selected.testCases.length - 3} hidden</p>
-                  )}
-                </div>
-              </div>
             </div>
 
-            {/* Editor column */}
+            {/* Resizer (Desktop only) */}
+            <div 
+              className="hidden lg:flex items-center justify-center h-2 cursor-row-resize bg-gray-100 border-y border-gray-200 hover:bg-gray-200 shrink-0 z-10 transition-colors group"
+              onMouseDown={startDrag}
+            >
+              <div className="w-8 h-1 rounded-full bg-gray-300 group-hover:bg-gray-400 transition-colors" />
+            </div>
+
+            {/* Editor column (BOTTOM) */}
             <div className={`flex-1 flex flex-col min-w-0 overflow-hidden
               ${mobilePanel === "editor" ? "flex" : "hidden lg:flex"}`}>
 
@@ -446,10 +521,9 @@ export default function PracticePage() {
                   {running ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
                   Run
                 </button>
-                <button onClick={submit} disabled={submitting || !runResult?.passed}
-                  title={!runResult?.passed ? "Pass all test cases first" : ""}
+                <button onClick={submit} disabled={submitting}
                   className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold border transition ${
-                    runResult?.passed ? "bg-green-600 text-white border-green-600 hover:bg-green-700" : "border-gray-200 text-gray-300 cursor-not-allowed"
+                    true ? "bg-green-600 text-white border-green-600 hover:bg-green-700" : "border-gray-200 text-gray-300 cursor-not-allowed"
                   }`}>
                   {submitting ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                   Submit
@@ -478,23 +552,35 @@ export default function PracticePage() {
                   {runResult.error && (
                     <pre className="px-4 py-3 text-xs text-red-600 bg-red-50 overflow-x-auto whitespace-pre-wrap">{runResult.error}</pre>
                   )}
-                  {runResult.results.map((r, i) => (
-                    <div key={i} className={`px-4 py-2.5 border-b border-gray-50 last:border-0 ${r.passed ? "" : "bg-red-50/30"}`}>
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        {r.passed ? <CheckCircle2 size={12} className="text-green-500" /> : <XCircle size={12} className="text-red-500" />}
-                        <span className="text-xs font-semibold text-gray-500">Case {i + 1}</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-                        <div><p className="text-gray-400 mb-0.5">Input</p><p className="bg-gray-100 rounded px-2 py-1 truncate">{r.input}</p></div>
-                        <div><p className="text-gray-400 mb-0.5">Expected</p><p className="bg-gray-100 rounded px-2 py-1 truncate">{r.expected}</p></div>
-                        <div><p className="text-gray-400 mb-0.5">Got</p>
-                          <p className={`rounded px-2 py-1 truncate ${r.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                            {r.error ? `Err: ${r.error}` : r.actual || "(empty)"}
-                          </p>
+                  {(!isSubmitMode || !runResult.passed) && (
+                    (isSubmitMode ? [runResult.results.find(r => !r.passed)].filter(Boolean) : runResult.results.slice(0, 2)).map((r: any, i: number) => (
+                      <div key={i} className={`px-4 py-2.5 border-b border-gray-50 last:border-0 ${r.passed ? "" : "bg-red-50/30"}`}>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          {r.passed ? <CheckCircle2 size={12} className="text-green-500" /> : <XCircle size={12} className="text-red-500" />}
+                          <span className="text-xs font-semibold text-gray-500">Case {isSubmitMode ? 'Failed' : i + 1}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                          <div><p className="text-gray-400 mb-0.5">Input</p><p className="bg-gray-100 rounded px-2 py-1 truncate" title={r.input}>{r.input}</p></div>
+                          <div><p className="text-gray-400 mb-0.5">Expected</p><p className="bg-gray-100 rounded px-2 py-1 truncate" title={r.expected}>{r.expected}</p></div>
+                          <div><p className="text-gray-400 mb-0.5">Got</p>
+                            <p className={`rounded px-2 py-1 truncate ${r.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`} title={r.error ? `Err: ${r.error}` : r.actual || "(empty)"}>
+                              {r.error ? `Err: ${r.error}` : r.actual || "(empty)"}
+                            </p>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  )}
+                  {isSubmitMode && runResult.passed && (
+                    <div className="px-4 py-4 text-xs font-semibold text-green-600 bg-green-50">
+                      Great job! Your solution passed all test cases.
                     </div>
-                  ))}
+                  )}
+                  {!isSubmitMode && totalCount > 2 && (
+                    <div className="px-4 py-2 text-xs text-gray-400 bg-gray-50">
+                      + {totalCount - 2} hidden test cases
+                    </div>
+                  )}
                 </div>
               )}
             </div>

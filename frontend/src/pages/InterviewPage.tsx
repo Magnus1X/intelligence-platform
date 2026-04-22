@@ -197,7 +197,7 @@ function ProgressDot({
 }
 
 export default function InterviewPage() {
-  const [step, setStep] = useState<"setup" | "session" | "complete">("setup");
+  const [step, setStep] = useState<"setup" | "session" | "complete" | "evaluating">("setup");
   const [role, setRole] = useState<RoleId>(ROLES[0].id as RoleId);
   const [category, setCategory] = useState(CATEGORY_OPTIONS_BY_ROLE[ROLES[0].id as RoleId][0]?.id ?? "");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("easy");
@@ -205,13 +205,11 @@ export default function InterviewPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [answer, setAnswer] = useState("");
-  const [selectedOption, setSelectedOption] = useState("");
-  const [evaluation, setEvaluation] = useState<EvalResult | null>(null);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<number, string>>({});
   const [history, setHistory] = useState<{ question: string; eval: EvalResult }[]>([]);
   const [startingSession, setStartingSession] = useState(false);
-  const [submittingAnswer, setSubmittingAnswer] = useState(false);
-  const [finishingSession, setFinishingSession] = useState(false);
+  const [evaluatingProgress, setEvaluatingProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [timer, setTimer] = useState(120);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -256,9 +254,8 @@ export default function InterviewPage() {
       setSession(data.data.session);
       setQuestions(nextQuestions);
       setCurrentIdx(0);
-      setAnswer("");
-      setSelectedOption("");
-      setEvaluation(null);
+      setAnswers({});
+      setSelectedOptions({});
       setHistory([]);
       setStep("session");
     } catch (error: any) {
@@ -268,62 +265,48 @@ export default function InterviewPage() {
     }
   };
 
-  const submitAnswer = async () => {
-    const activeQuestion = questions[currentIdx];
-    const responseText =
-      activeQuestion?.responseType === "choice"
-        ? selectedOption.trim()
-        : answer.trim();
-
-    if (!session || !activeQuestion || !responseText) return;
-
-    setSubmittingAnswer(true);
+  const submitEntireInterview = async () => {
+    if (!session) return;
+    setStep("evaluating");
     setErrorMessage(null);
 
-    try {
-      const { data } = await api.post("/interview/answers", {
-        sessionId: session._id,
-        questionId: activeQuestion._id,
-        responseText,
-      });
-
-      const nextEvaluation: EvalResult = data.data;
-      setEvaluation(nextEvaluation);
-      setHistory((existing) => [...existing, { question: activeQuestion.content, eval: nextEvaluation }]);
-    } catch (error: any) {
-      setErrorMessage(error.response?.data?.message || error.message || "Unable to submit the answer.");
-    } finally {
-      setSubmittingAnswer(false);
-    }
-  };
-
-  const completeSession = async () => {
-    setFinishingSession(true);
-    setErrorMessage(null);
+    const newHistory: { question: string; eval: EvalResult }[] = [];
 
     try {
-      if (session) {
-        await api.patch(`/interview/sessions/${session._id}/complete`);
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        const responseText = q.responseType === "choice" ? (selectedOptions[i] || "") : (answers[i] || "");
+        
+        setEvaluatingProgress(i + 1);
+
+        const { data } = await api.post("/interview/answers", {
+          sessionId: session._id,
+          questionId: q._id,
+          responseText: responseText || "(No answer provided)",
+        });
+
+        newHistory.push({ question: q.content, eval: data.data });
       }
+
+      await api.patch(`/interview/sessions/${session._id}/complete`);
+      setHistory(newHistory);
       setStep("complete");
     } catch (error: any) {
-      setErrorMessage(error.response?.data?.message || error.message || "Unable to complete the session.");
-    } finally {
-      setFinishingSession(false);
+      setErrorMessage(error.response?.data?.message || error.message || "Unable to evaluate interview.");
+      setStep("session"); // Allow retry
     }
   };
 
   const nextQuestion = () => {
-    if (currentIdx + 1 >= questions.length) {
-      void completeSession();
-      return;
+    if (currentIdx + 1 < questions.length) {
+      setCurrentIdx(currentIdx + 1);
     }
+  };
 
-    setCurrentIdx((value) => value + 1);
-    setAnswer("");
-    setSelectedOption("");
-    setEvaluation(null);
-    setErrorMessage(null);
+  const prevQuestion = () => {
+    if (currentIdx > 0) {
+      setCurrentIdx(currentIdx - 1);
+    }
   };
 
   const reset = () => {
@@ -331,9 +314,8 @@ export default function InterviewPage() {
     setSession(null);
     setQuestions([]);
     setCurrentIdx(0);
-    setAnswer("");
-    setSelectedOption("");
-    setEvaluation(null);
+    setAnswers({});
+    setSelectedOptions({});
     setHistory([]);
     setErrorMessage(null);
     setTimer(120);
@@ -460,6 +442,21 @@ export default function InterviewPage() {
     );
   }
 
+  if (step === "evaluating") {
+    return (
+      <div className="mx-auto max-w-2xl text-center space-y-6 pt-16">
+        <Loader2 size={48} className="mx-auto animate-spin text-black" />
+        <h2 className="text-2xl font-bold sm:text-3xl">Evaluating Your Interview</h2>
+        <p className="text-gray-500">
+          Our AI is analyzing your responses ({evaluatingProgress} / {questionCount})...
+        </p>
+        <div className="h-2 w-full rounded-full bg-gray-100 max-w-sm mx-auto overflow-hidden">
+          <div className="h-full bg-black transition-all" style={{ width: `${(evaluatingProgress / questionCount) * 100}%` }} />
+        </div>
+      </div>
+    );
+  }
+
   if (step === "session") {
     if (!selectedQuestion) {
       return (
@@ -471,6 +468,8 @@ export default function InterviewPage() {
         </div>
       );
     }
+
+    const currentAnswer = isChoiceQuestion ? (selectedOptions[currentIdx] || "") : (answers[currentIdx] || "");
 
     return (
       <div className="mx-auto max-w-6xl space-y-5">
@@ -523,146 +522,102 @@ export default function InterviewPage() {
               </p>
             </section>
 
-            {!evaluation ? (
-              <section className="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6">
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Response Mode</p>
-                  <p className="mt-2 text-sm font-semibold text-gray-900">
-                    {isChoiceQuestion ? "Select the best option for this question." : "Write your answer in the text box below."}
+            <section className="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6">
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Response Mode</p>
+                <p className="mt-2 text-sm font-semibold text-gray-900">
+                  {isChoiceQuestion ? "Select the best option for this question." : "Write your answer in the text box below."}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-gray-500">
+                  {isChoiceQuestion
+                    ? "This question is option-based. Pick one choice, then move to the next question."
+                    : "This question needs a written response. Explain your thinking clearly and mention tradeoffs when relevant."}
+                </p>
+              </div>
+
+              {isChoiceQuestion ? (
+                <div className="mt-4 space-y-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {optionList.map((option, index) => {
+                      const isActive = selectedOptions[currentIdx] === option;
+
+                      return (
+                        <button
+                          key={`${selectedQuestion._id}-${index}`}
+                          type="button"
+                          onClick={() => setSelectedOptions(prev => ({ ...prev, [currentIdx]: option }))}
+                          className={`rounded-2xl border px-4 py-4 text-left text-sm font-medium transition ${
+                            isActive
+                              ? "border-black bg-black text-white"
+                              : "border-gray-200 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                          }`}
+                        >
+                          <span className={`mr-3 inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold ${
+                            isActive ? "border-white/40 bg-white/10 text-white" : "border-gray-300 text-gray-500"
+                          }`}>
+                            {String.fromCharCode(65 + index)}
+                          </span>
+                          <span className="align-middle">{option}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-xs text-gray-400">
+                    {selectedOptions[currentIdx] ? `Selected option: ${selectedOptions[currentIdx]}` : "No option selected yet."}
                   </p>
-                  <p className="mt-1 text-sm leading-6 text-gray-500">
-                    {isChoiceQuestion
-                      ? "This question is option-based. Pick one choice, then submit it for AI feedback."
-                      : "This question needs a written response. Explain your thinking clearly and mention tradeoffs when relevant."}
-                  </p>
                 </div>
-
-                {isChoiceQuestion ? (
-                  <div className="mt-4 space-y-3">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {optionList.map((option, index) => {
-                        const isActive = selectedOption === option;
-
-                        return (
-                          <button
-                            key={`${selectedQuestion._id}-${index}`}
-                            type="button"
-                            onClick={() => setSelectedOption(option)}
-                            className={`rounded-2xl border px-4 py-4 text-left text-sm font-medium transition ${
-                              isActive
-                                ? "border-black bg-black text-white"
-                                : "border-gray-200 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50"
-                            }`}
-                          >
-                            <span className={`mr-3 inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold ${
-                              isActive ? "border-white/40 bg-white/10 text-white" : "border-gray-300 text-gray-500"
-                            }`}>
-                              {String.fromCharCode(65 + index)}
-                            </span>
-                            <span className="align-middle">{option}</span>
-                          </button>
-                        );
-                      })}
+              ) : (
+                <>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Your written answer</p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        The evaluator will score clarity, depth, and direction at the end.
+                      </p>
                     </div>
-
-                    <p className="text-xs text-gray-400">
-                      {selectedOption ? `Selected option: ${selectedOption}` : "No option selected yet."}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">Your written answer</p>
-                        <p className="mt-1 text-sm text-gray-500">
-                          The evaluator will score clarity, depth, and direction.
-                        </p>
-                      </div>
-                      <span className="text-xs font-medium text-gray-400">{answer.trim().split(/\s+/).filter(Boolean).length} words</span>
-                    </div>
-
-                    <textarea
-                      value={answer}
-                      onChange={(event) => setAnswer(event.target.value)}
-                      rows={10}
-                      placeholder="Explain your thinking clearly, mention tradeoffs, and give examples where relevant."
-                      className="mt-4 min-h-[220px] w-full rounded-2xl border border-gray-300 px-4 py-4 text-sm leading-6 text-gray-800 transition focus:border-black focus:outline-none sm:min-h-[240px]"
-                    />
-                  </>
-                )}
-
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <button
-                    type="button"
-                    onClick={submitAnswer}
-                    disabled={submittingAnswer || (isChoiceQuestion ? !selectedOption.trim() : !answer.trim())}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {submittingAnswer ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
-                    Submit Answer
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAnswer("");
-                      setSelectedOption("");
-                    }}
-                    disabled={isChoiceQuestion ? !selectedOption : !answer}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-600 transition hover:border-gray-400 hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <RotateCcw size={15} />
-                    {isChoiceQuestion ? "Clear Selection" : "Clear Response"}
-                  </button>
-                </div>
-              </section>
-            ) : (
-              <section className={`rounded-3xl border border-gray-200 bg-white p-5 shadow-sm ring-4 sm:p-6 ${DIFF_RING[difficulty]}`}>
-                <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Evaluation</p>
-                    <h3 className="mt-2 text-xl font-bold text-gray-900">AI feedback for this answer</h3>
+                    <span className="text-xs font-medium text-gray-400">{(answers[currentIdx] || "").trim().split(/\s+/).filter(Boolean).length} words</span>
                   </div>
 
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-center">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Score</p>
-                    <p className="mt-1 text-3xl font-extrabold text-gray-900">
-                      {evaluation.aiScore}
-                      <span className="ml-1 text-sm font-medium text-gray-400">/100</span>
-                    </p>
-                  </div>
-                </div>
+                  <textarea
+                    value={answers[currentIdx] || ""}
+                    onChange={(event) => setAnswers(prev => ({ ...prev, [currentIdx]: event.target.value }))}
+                    rows={10}
+                    placeholder="Explain your thinking clearly, mention tradeoffs, and give examples where relevant."
+                    className="mt-4 min-h-[220px] w-full rounded-2xl border border-gray-300 px-4 py-4 text-sm leading-6 text-gray-800 transition focus:border-black focus:outline-none sm:min-h-[240px]"
+                  />
+                </>
+              )}
 
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-green-600">Strengths</p>
-                    <p className="mt-2 text-sm leading-6 text-gray-700">{evaluation.strengths}</p>
-                  </div>
-                  <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-red-500">Weaknesses</p>
-                    <p className="mt-2 text-sm leading-6 text-gray-700">{evaluation.weaknesses}</p>
-                  </div>
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Suggestions</p>
-                    <p className="mt-2 text-sm leading-6 text-gray-700">{evaluation.suggestions}</p>
-                  </div>
-                </div>
-
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-5 border-t border-gray-100">
                 <button
                   type="button"
-                  onClick={nextQuestion}
-                  disabled={finishingSession}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={prevQuestion}
+                  disabled={currentIdx === 0}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-600 transition hover:border-gray-400 hover:text-black disabled:invisible"
                 >
-                  {finishingSession && currentIdx + 1 >= questionCount ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    <ChevronRight size={15} />
-                  )}
-                  {currentIdx + 1 >= questionCount ? "View Session Results" : "Next Question"}
+                  Previous
                 </button>
-              </section>
-            )}
+
+                {currentIdx + 1 < questionCount ? (
+                  <button
+                    type="button"
+                    onClick={nextQuestion}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-black px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+                  >
+                    Next Question <ChevronRight size={15} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={submitEntireInterview}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-green-700"
+                  >
+                    <CheckCircle size={15} /> Submit Interview
+                  </button>
+                )}
+              </div>
+            </section>
           </div>
 
           <aside className="space-y-4">
@@ -673,32 +628,25 @@ export default function InterviewPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-4 gap-2 sm:grid-cols-5">
-                {questions.map((question, index) => (
-                  <ProgressDot
-                    key={question._id}
-                    label={index + 1}
-                    active={index === currentIdx}
-                    complete={index < history.length}
-                  />
-                ))}
+                {questions.map((question, index) => {
+                  const hasAnswer = question.responseType === "choice" ? !!selectedOptions[index] : !!answers[index];
+                  return (
+                    <ProgressDot
+                      key={question._id}
+                      label={index + 1}
+                      active={index === currentIdx}
+                      complete={hasAnswer && index !== currentIdx}
+                    />
+                  );
+                })}
               </div>
 
               <div className="mt-5 space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-                <SummaryRow label="Answered" value={`${history.length}/${questionCount}`} />
                 <SummaryRow label="Current track" value={getOptionLabel(ALL_CATEGORY_OPTIONS, selectedQuestion.category)} />
                 <SummaryRow label="Question type" value={isChoiceQuestion ? "Option-based" : "Written"} />
                 <SummaryRow label="Session length" value={`${questionCount} questions`} />
                 <SummaryRow label="Difficulty" value={getOptionLabel(DIFFICULTIES, difficulty)} />
               </div>
-
-              <button
-                type="button"
-                onClick={() => void completeSession()}
-                disabled={finishingSession}
-                className="mt-5 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-600 transition hover:border-gray-400 hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {finishingSession ? "Ending session..." : "End Session Early"}
-              </button>
             </div>
           </aside>
         </div>

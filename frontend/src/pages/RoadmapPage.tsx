@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import api from "../services/api";
 import {
   CheckCircle2, Circle, Loader2, Sparkles, ChevronRight,
@@ -270,9 +271,9 @@ export default function RoadmapPage() {
                       </div>
                     </div>
 
-                    {/* Resources */}
-                    {topic.resources.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-3">
+                    {/* Resources & Actions */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-gray-100">
+                      <div className="flex flex-wrap gap-1.5">
                         {topic.resources.map((res, i) => (
                           <span
                             key={i}
@@ -283,7 +284,22 @@ export default function RoadmapPage() {
                           </span>
                         ))}
                       </div>
-                    )}
+                      <Link 
+                        to={`/practice?category=${encodeURIComponent(
+                          topic.title.toLowerCase().includes('dynamic') ? 'dp' :
+                          topic.title.toLowerCase().includes('linked') ? 'linked-list' :
+                          topic.title.toLowerCase().includes('arrays') ? 'arrays' :
+                          topic.title.toLowerCase().includes('trees') ? 'trees' :
+                          topic.title.toLowerCase().includes('stacks') ? 'stack' :
+                          topic.title.toLowerCase().includes('graphs') ? 'graphs' :
+                          topic.title.split(' ')[0].toLowerCase().replace(/&/g, '').trim()
+                        )}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-black hover:underline"
+                      >
+                        Practice Questions <ChevronRight size={12} />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               );
