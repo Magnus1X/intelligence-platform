@@ -1,15 +1,31 @@
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
-import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import { connectDB } from "./config/db";
 
 const app = express();
 
-// ── CORS — fully open, reflect any origin ──────────────────────────────────
-app.use(cors({ origin: true, credentials: true, methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"] }));
-app.options("/{*path}", cors({ origin: true, credentials: true }));
+// ── CORS — manual implementation for Express 5 compatibility ───────────────
+// This runs on EVERY request and adds CORS headers to all responses.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  res.setHeader("Access-Control-Max-Age", "86400");
+
+  // Short-circuit preflight requests immediately
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
 app.use(morgan("combined"));
 app.use(express.json({ limit: "2mb" }));
