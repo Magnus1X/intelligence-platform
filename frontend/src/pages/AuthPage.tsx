@@ -11,6 +11,9 @@ export default function AuthPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [college, setCollege] = useState("");
+  const [yearOfStudy, setYearOfStudy] = useState("");
+  const [address, setAddress] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login, register, token } = useAuth();
@@ -33,7 +36,7 @@ export default function AuthPage() {
     setLoading(true);
     try {
       if (mode === "login") await login(email, password);
-      else await register(name, email, password);
+      else await register(name, email, password, college, yearOfStudy, address);
       navigate("/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || "Something went wrong");
@@ -97,16 +100,47 @@ export default function AuthPage() {
 
           <form onSubmit={submit} className="space-y-4">
             {mode === "register" && (
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">Full name</label>
-                <input
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-black transition"
-                  placeholder="Magnus"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
+              <>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Full name</label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-black transition"
+                    placeholder="Magnus"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">College</label>
+                  <input
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-black transition"
+                    placeholder="University Name"
+                    value={college}
+                    onChange={(e) => setCollege(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Year of Study</label>
+                    <input
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-black transition"
+                      placeholder="e.g. 3rd Year"
+                      value={yearOfStudy}
+                      onChange={(e) => setYearOfStudy(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Address</label>
+                    <input
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-black transition"
+                      placeholder="City, Country"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </>
             )}
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Email</label>

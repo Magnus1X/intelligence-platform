@@ -1,13 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import api from "../services/api";
 
-interface User { id: string; name: string; email: string; role: string; }
+interface User { id: string; name: string; email: string; role: string; college?: string; yearOfStudy?: string; address?: string; }
 interface AuthCtx {
   user: User | null;
   token: string | null;
   isNewUser: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, college?: string, yearOfStudy?: string, address?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -32,8 +32,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsNewUser(false);
   };
 
-  const register = async (name: string, email: string, password: string) => {
-    const { data } = await api.post("/auth/register", { name, email, password });
+  const register = async (name: string, email: string, password: string, college?: string, yearOfStudy?: string, address?: string) => {
+    const { data } = await api.post("/auth/register", { name, email, password, college, yearOfStudy, address });
     localStorage.setItem("token", data.data.token);
     setToken(data.data.token);
     setUser(data.data.user);

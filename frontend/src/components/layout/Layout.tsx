@@ -51,11 +51,22 @@ export default function Layout() {
 
         {/* Desktop user + logout */}
         <div className="mt-auto hidden border-t border-gray-200 p-4 md:block">
-          <p className="text-xs font-medium text-gray-700 truncate">{user?.name}</p>
-          <p className="text-xs text-gray-400 mb-3 truncate">{user?.email}</p>
+          <div className="mb-4 space-y-1">
+            <p className="text-sm font-semibold text-gray-900 truncate">{user?.name}</p>
+            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            {user?.college && (
+              <p className="text-xs text-gray-400 truncate mt-1">🎓 {user.college}</p>
+            )}
+            {user?.yearOfStudy && (
+              <p className="text-xs text-gray-400 truncate">📅 {user.yearOfStudy}</p>
+            )}
+            {user?.address && (
+              <p className="text-xs text-gray-400 truncate">📍 {user.address}</p>
+            )}
+          </div>
           <button onClick={logout}
-            className="flex items-center gap-2 text-xs text-gray-500 hover:text-black transition">
-            <LogOut size={13} /> Logout
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-black transition">
+            <LogOut size={14} /> Sign out
           </button>
         </div>
       </aside>

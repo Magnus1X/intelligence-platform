@@ -8,6 +8,9 @@ const UserSchema = new Schema<IUser>(
     email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String, required: true, minlength: 6 },
     role: { type: String, enum: ["user", "admin"], default: "user" },
+    college: { type: String, trim: true },
+    yearOfStudy: { type: String, trim: true },
+    address: { type: String, trim: true },
   },
   { timestamps: true }
 );

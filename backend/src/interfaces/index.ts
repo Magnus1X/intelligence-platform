@@ -7,6 +7,9 @@ export interface IUser extends Document {
   email: string;
   password: string;
   role: "user" | "admin";
+  college?: string;
+  yearOfStudy?: string;
+  address?: string;
   createdAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
 }
@@ -15,6 +18,10 @@ export interface IUserPayload {
   id: string;
   email: string;
   role: "user" | "admin";
+  name?: string;
+  college?: string;
+  yearOfStudy?: string;
+  address?: string;
 }
 
 // ─── Interview Session ────────────────────────────────────────────────────────
