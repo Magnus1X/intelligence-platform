@@ -139,7 +139,7 @@ function OptionCardGroup<T extends string | number>({
         <p className="mt-1 text-sm text-gray-500">{helper}</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="flex flex-wrap gap-2">
         {options.map((option) => {
           const active = option.id === value;
 
@@ -148,25 +148,13 @@ function OptionCardGroup<T extends string | number>({
               key={option.id}
               type="button"
               onClick={() => onChange(option.id)}
-              className={`rounded-2xl border p-4 text-left transition ${
+              className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
                 active
                   ? "border-black bg-black text-white shadow-sm"
                   : "border-gray-200 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50"
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">{option.label}</p>
-                  <p className={`mt-2 text-sm leading-6 ${active ? "text-white/75" : "text-gray-500"}`}>
-                    {option.desc}
-                  </p>
-                </div>
-                <span
-                  className={`mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border ${
-                    active ? "border-white bg-white" : "border-gray-300 bg-transparent"
-                  }`}
-                />
-              </div>
+              {option.label}
             </button>
           );
         })}
